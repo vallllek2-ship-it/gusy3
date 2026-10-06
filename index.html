@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Червяк из Ташлы: Текстовый Стрим</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            background-color: #111;
+            color: #fff;
+            font-family: 'Arial', sans-serif;
+            margin: 0;
+            padding: 5px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            min-height: 100vh;
+            user-select: none;
+        }
+        .stream-header {
+            width: 100%;
+            max-width: 400px;
+            display: flex;
+            justify-content: space-between;
+            background: #222;
+            padding: 10px;
+            border-radius: 6px;
+            font-size: 14px;
+            border: 2px solid #ff4500;
+            margin-bottom: 5px;
+        }
+        .live { color: #ff0000; font-weight: bold; animation: blink 1s infinite; }
+        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+        
+        .hud {
+            width: 100%;
+            max-width: 400px;
+            display: flex;
+            justify-content: space-between;
+            background: #1e1e1e;
+            padding: 10px;
+            border-radius: 6px;
+            font-size: 13px;
+            margin-bottom: 5px;
+        }
+        .bar { width: 60px; height: 12px; background: #444; display: inline-block; border-radius: 5px; overflow: hidden; vertical-align: middle; }
+        .fill-hp { height: 100%; background: #4caf50; }
+        .fill-dry { height: 100%; background: #ff9800; }
+
+        /* Вместо пустого экрана — текстовое поле квеста */
+        #game-screen {
+            width: 100%;
+            max-width: 400px;
+            height: 350px;
+            background: #252525;
+            border: 4px solid #ff4500;
+            border-radius: 12px;
+            padding: 15px;
+            font-size: 16px;
+            line-height: 1.5;
+            overflow-y: auto;
+        }
+
+        .controls {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-top: 15px;
+            width: 100%;
+            max-width: 400px;
+        }
+        .btn {
+            background: #ff4500;
+            color: white;
+            border: none;
+            border-radius: 12px;
+            padding: 12px;
+            font-size: 15px;
+            font-weight: bold;
+            text-align: left;
+            cursor: pointer;
+            box-shadow: 0 4px #b33000;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .btn:active { 
+            background: #cc3700;
+            transform: translateY(2px);
+            box-shadow: 0 2px #b33000;
+        }
+    </style>
+</head>
+<body>
+
+<div class="stream-header">
+    <div>🔴 ЧЕРВЯК_ТАШЛА_КВЕСТ</div>
+    <div class="live">LIVE</div>
+</div>
+
+<div class="hud">
+    <div>ХП: <div class="bar"><div id="hp-bar" class="fill-hp" style="width: 100%;"></div></div></div>
+    <div>Сушняк: <div class="bar"><div id="dry-bar" class="fill-dry" style="width: 100%;"></div></div></div>
+    <div>Зрители: <span id="viewers" style="color:#ff4500; font-weight:bold;">1200</span></div>
+</div>
+
+<!-- Текстовое окно игры -->
+<div id="game-screen">Загрузка стрима...</div>
+
+<!-- Кнопки выбора действий -->
+<div class="controls" id="options-container"></div>
+
+<script>
+    var hp = 100;
+    var dry = 100;
+    var viewers = 1200;
+
+    var screenEl = document.getElementById('game-screen');
+    var optionsEl = document.getElementById('options-container');
+
+    var story = {
+        start: {
+            text: "<b>Сцена 1: Утро легенды Ташлы.</b><br><br>Червяк просыпается под дикий гул в голове. Трубы горят синим пламенем, во рту Сахара. На столе сиротливо лежит большая синяя луковица, оставшаяся с вечера. Чат на стриме требует шоу. С чего начнем поправлять здоровье?",
+            options: [
+                { text: "咬 Куснуть луковицу прямо в шелухе, как яблоко", next: "onion_raw" },
+                { text: "🔪 Попробовать очистить её трясущимися руками", next: "onion_peel" }
+            ]
+        },
+        onion_raw: {
+            text: "<b>Результат:</b><br><br>Червяк вонзает зубы в лук прямо сквозь шелуху! Хруст на всю квартиру. Шок полностью перезапускает организм мужика. Сушняк немного отступает от такого ядерного удара, хотя шелуха неприятно скрипит на зубах.<br><br>Чат ликует: <i>'Вот это сталь! Ташла рулит!'</i>.",
+            hp: -10, dry: -40, viewers: 500,
+            options: [{ text: "🔥 Перейти к главному луковому челленджу", next: "challenge_start" }]
+        },
+        onion_peel: {
+            text: "<b>Результат:</b><br><br>Руки ходят ходуном! Нож срывается, и едкий луковый сок брызжет прямо в красные, невыспавшиеся глаза Червяка. Он громко матерится на всю Ташлу и слепнет на пару минут.<br><br>Чат смеется: <i>'Ахаха, Червяка лук победил в первом раунде!'</i>.",
+            hp: -30, dry: 0, viewers: 800,
+            options: [{ text: "🧼 Промыть глаза и продолжить стрим", next: "challenge_start" }]
+        },
+        challenge_start: {
+            text: "<b>Сцена 2: Луковый Челлендж за донат.</b><br><br>Прилетает крупный донат от Васька: <i>'Слабо сожрать остаток лука целиком без единой слезы?'</i>. Червяк принимает свою коронную стойку со скрещенными руками на груди и сурово смотрит в объектив. Пора доказать, кто тут батя.",
+            options: [
+                { text: "🦎 «Укус Кобры» — резко заглотить кусок на скорости", next: "cobra" },
+                { text: "🗣️ «Тактический прогрев» — долго пояснять чату за жизнь", next: "philosophy" }
+            ]
+        },
+        cobra: {
+            text: "<b>Результат:</b><br><br>Червяк за один присест сжевывает лук. Глаза вылезают из орбит, лицо краснеет, но он держит стойку и не моргает ради хайпа. Васёк тут же удваивает донат! Вы заслужили уважение Ташлы.",
+            hp: -10, dry: -30, viewers: 1500,
+            options: [{ text: "🧹 Взяться за мытье полов за новый донат", next: "cleaning_start" }]
+        },
+        philosophy: {
+            text: "<b>Результат:</b><br><br>Пока Червяк задвигает лекции про жизнь, пары разрезанного лука поднимаются вверх. Глаза начинают течь сами собой еще до укуса. Чат глумится: <i>'Червяк заплакал от жизни в Ташле!'</i>. Челлендж Васька полностью провален.",
+            hp: 0, dry: -10, viewers: -300,
+            options: [{ text: "🪣 Обидеться на чат и пойти мыть полы", next: "cleaning_start" }]
+        },
+        cleaning_start: {
+            text: "<b>Сцена 3: Миссия 'Чистый линолеум'.</b><br><br>Новый подписчик кидает сотку: <i>'В хате бардак, бери тряпку и покажи мастер-класс!'</i>. Червяк набирает ведро воды и берет старую швабру-крест. Погнали наводить марафет.",
+            options: [
+                { text: "🌊 По-флотски — вылить ведро воды прямо на пол", next: "navy_style" },
+                { text: "🧎 На коленях — тщательно тереть пол тряпкой в камеру", next: "sexy_style" }
+            ]
+        },
+        navy_style: {
+            text: "<b>Результат:</b><br><br>Червяк устраивает локальное цунами! Вода заливает кухню, провода от ПК опасно искрят, а швабра летает в его руках как хоккейная клюшка. Соседи снизу услышали потоп и уже бешено стучат в железную дверь!",
+            hp: -10, dry: -10, viewers: 2000,
+            options: [
+                { text: "🚪 Открыть дверь соседям со шваброй наперевес", next: "fight_win" },
+                { text: "💤 Притвориться ветошью и уснуть на мокром полу", next: "afk_ending" }
+            ]
+        },
+        sexy_style: {
+            text: "<b>Результат:</b><br><br>Червяк усердно ползает и трет пол. Женская половина чата в полном восторге от его татуировок на спине, донаты летят рекой! Пол блестит как новый. Но в дверь внезапно раздается знакомый стук Михалыча.",
+            hp: -10, dry: -15, viewers: 1000,
+            options: [
+                { text: "🍻 Открыть и позвать Михалыча в прямой эфир", next: "stream_win" },
+                { text: "🛌 Проигнорировать стук и завалиться спать", next: "sleep_ending" }
+            ]
+        },
+        fight_win: {
+            text: "<b>ФИНАЛ: Король Ташлы!</b><br><br>Червяк распахивает дверь, сурово скрестив руки. Сосед снизу от вида татуированного гиганта со шваброй сразу бледнеет, извиняется и уходит. Пол чист, авторитет зафиксирован на максимум. Стрим прошел легендарно! Вы победили!",
+            options: []
+        },
+        stream_win: {
+            text: "<b>ФИНАЛ: Легендарная коллаборация!</b><br><br>Михалыч заходит с холодным пивом, оценивает идеальную чистоту линолеума и садится в кадр. Стрим бьет все рекорды района, похмелье полностью побеждено. Вы победили!",
+            options: []
+        },
+        afk_ending: {
+            text: "<b>КОНЦОВКА: Затопление века.</b><br><br>Червяк решает, что проблемы с соседями подождут, ложится на линолеум и засыпает. Стрим уходит в категорию 'Сон'. Соседи вызывают аварийную службу. Игра окончена.",
+            options: []
+        },
+        sleep_ending: {
+            text: "<b>КОНЦОВКА: Сон чистого человека.</b><br><br>Червяк выключает компьютер и ложится отдыхать в убранной квартире. Выживание прошло успешно, трубы больше не горят. Конец первого сезона!",
+            options: []
+        }
+    };
+
+    function loadStep(stepId) {
+        var step = story[stepId];
+        
+        if (step.hp) hp += step.hp;
+        if (step.dry) dry += step.dry;
+        if (step.viewers) viewers += step.viewers;
+        
+        // Ограничители шкал
+        hp = Math.max(0, Math.min(100, hp));
+        dry = Math.max(0, Math.min(100, dry));
+
+        document.getElementById('hp-bar').style.width = hp + '%';
+        document.getElementById('dry-bar').style.width = dry + '%';
+        document.getElementById('viewers').innerText = viewers;
+
+        screenEl.innerHTML = step.text;
